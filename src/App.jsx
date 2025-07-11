@@ -22,6 +22,8 @@ function App() {
   const [isMuted, setIsMuted] = useState(false)
   const [successes, setSuccesses] = useState([])
   const [currentSuccessIdx, setCurrentSuccessIdx] = useState(0)
+  const [goals, setGoals] = useState([])
+  const [currentGoalIdx, setCurrentGoalIdx] = useState(0)
   const audioRef = useRef(null)
 
   // Fetch and shuffle past successes on mount
@@ -31,6 +33,23 @@ function App() {
       .then((data) => setSuccesses(shuffleArray(data)))
       .catch((err) => setSuccesses([{ id: 0, text: 'Could not load past successes.' }]))
   }, [])
+
+  // Fetch goals on mount
+  React.useEffect(() => {
+    fetch('/goals.json')
+      .then((res) => res.json())
+      .then((data) => setGoals(data))
+      .catch((err) => setGoals([]))
+  }, [])
+
+  // Auto-advance goal image every 30 seconds
+  React.useEffect(() => {
+    if (goals.length === 0) return;
+    const interval = setInterval(() => {
+      setCurrentGoalIdx((idx) => (idx + 1) % goals.length);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [goals]);
 
   const tracks = [
     { label: 'Tone 1', file: 'isochronic-tone-1.mp3' },
@@ -93,18 +112,18 @@ function App() {
   return (
     <div style={{ minHeight: '100vh', background: '#242424', color: '#fff', padding: '2em 0' }}>
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
-        {/* Isochronic Tone Player */}
-        <div style={{ marginTop: '2em' }}>
-          <h2>Isochronic Tone Player</h2>
-          <div style={{ display: 'flex', gap: '1em', justifyContent: 'center', marginBottom: '1em' }}>
+        {/* Isochronic Tone Player - now at the top, smaller */}
+        <div style={{ marginTop: '0', marginBottom: '1.5em', padding: '0.5em 0', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.1em', marginBottom: '0.7em' }}>Isochronic Tone Player</h2>
+          <div style={{ display: 'flex', gap: '0.5em', justifyContent: 'center', marginBottom: '0.7em' }}>
             {tracks.map((track) => (
               <button
                 key={track.file}
                 onClick={() => handleTrackSelect(track.file)}
                 style={{
-                  fontSize: '1em',
-                  padding: '0.4em 1em',
-                  borderRadius: '6px',
+                  fontSize: '0.85em',
+                  padding: '0.25em 0.7em',
+                  borderRadius: '5px',
                   border: selectedTrack === track.file ? '2px solid #646cff' : '1px solid #444',
                   background: selectedTrack === track.file ? '#23234a' : '#1a1a1a',
                   color: '#fff',
@@ -119,8 +138,8 @@ function App() {
             ))}
           </div>
           <audio ref={audioRef} src={`/${selectedTrack}`} onEnded={() => setIsPlaying(false)} />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1em', margin: '1em 0' }}>
-            <button onClick={handlePlayPause} style={{ fontSize: '1.2em', padding: '0.5em 1em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5em', margin: '0.7em 0' }}>
+            <button onClick={handlePlayPause} style={{ fontSize: '0.95em', padding: '0.3em 0.7em' }}>
               {isPlaying ? 'Pause' : 'Play'}
             </button>
             <input
@@ -130,13 +149,46 @@ function App() {
               step="0.01"
               value={volume}
               onChange={handleVolumeChange}
-              style={{ width: '100px' }}
+              style={{ width: '70px' }}
               aria-label="Volume"
             />
-            <button onClick={handleMute} style={{ fontSize: '1em', padding: '0.4em 1em' }}>
+            <button onClick={handleMute} style={{ fontSize: '0.85em', padding: '0.25em 0.7em' }}>
               {isMuted ? 'Unmute' : 'Mute'}
             </button>
           </div>
+        </div>
+        {/* Goal Visualization - auto-advancing slideshow */}
+        <div style={{ marginTop: '0', textAlign: 'center' }}>
+          <h2>Goal Visualization</h2>
+          {goals.length > 0 ? (
+            <div style={{ minHeight: '480px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={goals[currentGoalIdx]}
+                alt="Goal"
+                style={{
+                  maxWidth: '90vw',
+                  maxHeight: '480px',
+                  width: '100%',
+                  height: 'auto',
+                  borderRadius: '18px',
+                  boxShadow: '0 4px 24px #0006',
+                  background: '#181830',
+                  objectFit: 'contain',
+                  margin: '0 auto',
+                  display: 'block',
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{ color: '#aaa', minHeight: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              No goal images found.
+            </div>
+          )}
+          {goals.length > 0 && (
+            <div style={{ marginTop: '1em', fontSize: '0.9em', color: '#aaa' }}>
+              {currentGoalIdx + 1} / {goals.length}
+            </div>
+          )}
         </div>
         {/* Past Successes - single display with navigation */}
         <div style={{ marginTop: '3em', textAlign: 'center' }}>
