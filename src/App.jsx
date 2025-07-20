@@ -38,7 +38,7 @@ function App() {
   React.useEffect(() => {
     fetch('/goals.json')
       .then((res) => res.json())
-      .then((data) => setGoals(data))
+      .then((data) => setGoals(shuffleArray(data)))
       .catch((err) => setGoals([]))
   }, [])
 
