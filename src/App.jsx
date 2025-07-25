@@ -24,14 +24,23 @@ function App() {
   const [currentSuccessIdx, setCurrentSuccessIdx] = useState(0)
   const [goals, setGoals] = useState([])
   const [currentGoalIdx, setCurrentGoalIdx] = useState(0)
+  const [newWinText, setNewWinText] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
   const audioRef = useRef(null)
 
   // Fetch and shuffle past successes on mount
   React.useEffect(() => {
-    fetch('/past-successes.json')
-      .then((res) => res.json())
-      .then((data) => setSuccesses(shuffleArray(data)))
-      .catch((err) => setSuccesses([{ id: 0, text: 'Could not load past successes.' }]))
+    // First try to load from localStorage
+    const savedSuccesses = localStorage.getItem('customSuccesses');
+    if (savedSuccesses) {
+      setSuccesses(JSON.parse(savedSuccesses));
+    } else {
+      // Fall back to fetching from file
+      fetch('/past-successes.json')
+        .then((res) => res.json())
+        .then((data) => setSuccesses(shuffleArray(data)))
+        .catch((err) => setSuccesses([{ id: 0, text: 'Could not load past successes.' }]))
+    }
   }, [])
 
   // Fetch goals on mount
@@ -50,6 +59,15 @@ function App() {
     }, 30000);
     return () => clearInterval(interval);
   }, [goals]);
+
+  // Auto-advance past successes every 30 seconds
+  React.useEffect(() => {
+    if (successes.length === 0) return;
+    const interval = setInterval(() => {
+      setCurrentSuccessIdx((idx) => (idx + 1) % successes.length);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [successes]);
 
   const tracks = [
     { label: 'Tone 1', file: 'isochronic-tone-1.mp3' },
@@ -109,6 +127,28 @@ function App() {
     setCurrentSuccessIdx((idx) => (idx === successes.length - 1 ? 0 : idx + 1));
   };
 
+  const handleAddWin = () => {
+    if (newWinText.trim()) {
+      const newWin = {
+        id: Date.now(),
+        text: newWinText.trim()
+      };
+      const updatedSuccesses = [...successes, newWin];
+      setSuccesses(updatedSuccesses);
+      setNewWinText('');
+      setShowAddForm(false);
+      
+      // Save to localStorage
+      localStorage.setItem('customSuccesses', JSON.stringify(updatedSuccesses));
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleAddWin();
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#242424', color: '#fff', padding: '2em 0' }}>
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
@@ -157,56 +197,144 @@ function App() {
             </button>
           </div>
         </div>
-        {/* Goal Visualization - auto-advancing slideshow */}
-        <div style={{ marginTop: '0', textAlign: 'center' }}>
-          <h2>Goal Visualization</h2>
-          {goals.length > 0 ? (
-            <div style={{ minHeight: '480px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img
-                src={goals[currentGoalIdx]}
-                alt="Goal"
-                style={{
-                  maxWidth: '90vw',
-                  maxHeight: '480px',
-                  width: '100%',
-                  height: 'auto',
-                  borderRadius: '18px',
-                  boxShadow: '0 4px 24px #0006',
-                  background: '#181830',
-                  objectFit: 'contain',
-                  margin: '0 auto',
-                  display: 'block',
-                }}
-              />
-            </div>
-          ) : (
-            <div style={{ color: '#aaa', minHeight: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              No goal images found.
-            </div>
-          )}
-          {goals.length > 0 && (
-            <div style={{ marginTop: '1em', fontSize: '0.9em', color: '#aaa' }}>
-              {currentGoalIdx + 1} / {goals.length}
-            </div>
-          )}
-        </div>
-        {/* Past Successes - single display with navigation */}
-        <div style={{ marginTop: '3em', textAlign: 'center' }}>
-          <h2>Past Successes</h2>
-          {successes.length > 0 && (
-            <>
-              <div style={{ margin: '1.5em 0', background: '#23234a', color: '#fff', borderRadius: '6px', padding: '2em 1em', boxShadow: '0 2px 8px #0002', minHeight: '4em', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2em' }}>
-                {successes[currentSuccessIdx]?.text}
+        {/* Main Content - Side by side layout for desktop */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '2em', 
+          marginTop: '0',
+          flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+          alignItems: 'flex-start'
+        }}>
+          {/* Goal Visualization - auto-advancing slideshow */}
+          <div style={{ 
+            flex: '2', 
+            textAlign: 'center',
+            minWidth: 0 // Allows flex item to shrink below content size
+          }}>
+            <h2>Goal Visualization</h2>
+            {goals.length > 0 ? (
+              <div style={{ minHeight: '480px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img
+                  src={goals[currentGoalIdx]}
+                  alt="Goal"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '480px',
+                    width: '100%',
+                    height: 'auto',
+                    borderRadius: '18px',
+                    boxShadow: '0 4px 24px #0006',
+                    background: '#181830',
+                    objectFit: 'contain',
+                    margin: '0 auto',
+                    display: 'block',
+                  }}
+                />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '1em' }}>
-                <button onClick={handlePrev} style={{ fontSize: '1em', padding: '0.5em 1.5em', borderRadius: '6px', border: '1px solid #646cff', background: '#1a1a1a', color: '#fff', cursor: 'pointer' }}>Previous</button>
-                <button onClick={handleNext} style={{ fontSize: '1em', padding: '0.5em 1.5em', borderRadius: '6px', border: '1px solid #646cff', background: '#1a1a1a', color: '#fff', cursor: 'pointer' }}>Next</button>
+            ) : (
+              <div style={{ color: '#aaa', minHeight: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                No goal images found.
               </div>
+            )}
+            {goals.length > 0 && (
               <div style={{ marginTop: '1em', fontSize: '0.9em', color: '#aaa' }}>
-                {currentSuccessIdx + 1} / {successes.length}
+                {currentGoalIdx + 1} / {goals.length}
               </div>
-            </>
-          )}
+            )}
+          </div>
+          
+          {/* Past Successes - single display with navigation */}
+          <div style={{ 
+            flex: '1', 
+            textAlign: 'center',
+            minWidth: 0 // Allows flex item to shrink below content size
+          }}>
+            <h2>Past Successes</h2>
+            {successes.length > 0 && (
+              <>
+                <div style={{ 
+                  margin: '1.5em 0', 
+                  background: '#23234a', 
+                  color: '#fff', 
+                  borderRadius: '6px', 
+                  padding: '2em 1em', 
+                  boxShadow: '0 2px 8px #0002', 
+                  minHeight: '4em', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontSize: '1.2em' 
+                }}>
+                  {successes[currentSuccessIdx]?.text}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '1em' }}>
+                  <button onClick={handlePrev} style={{ fontSize: '1em', padding: '0.5em 1.5em', borderRadius: '6px', border: '1px solid #646cff', background: '#1a1a1a', color: '#fff', cursor: 'pointer' }}>Previous</button>
+                  <button onClick={handleNext} style={{ fontSize: '1em', padding: '0.5em 1.5em', borderRadius: '6px', border: '1px solid #646cff', background: '#1a1a1a', color: '#fff', cursor: 'pointer' }}>Next</button>
+                </div>
+                <div style={{ marginTop: '1em', fontSize: '0.9em', color: '#aaa' }}>
+                  {currentSuccessIdx + 1} / {successes.length}
+                </div>
+              </>
+            )}
+            
+            {/* Add New Win Form */}
+            <div style={{ marginTop: '2em', padding: '1em', background: '#1a1a1a', borderRadius: '8px' }}>
+              <button 
+                onClick={() => setShowAddForm(!showAddForm)}
+                style={{ 
+                  fontSize: '0.9em', 
+                  padding: '0.5em 1em', 
+                  borderRadius: '6px', 
+                  border: '1px solid #646cff', 
+                  background: '#23234a', 
+                  color: '#fff', 
+                  cursor: 'pointer',
+                  marginBottom: showAddForm ? '1em' : '0'
+                }}
+              >
+                {showAddForm ? 'Cancel' : 'Add New Win'}
+              </button>
+              
+              {showAddForm && (
+                <div style={{ textAlign: 'left' }}>
+                  <textarea
+                    value={newWinText}
+                    onChange={(e) => setNewWinText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter your new win/success..."
+                    style={{
+                      width: '100%',
+                      minHeight: '80px',
+                      padding: '0.5em',
+                      borderRadius: '4px',
+                      border: '1px solid #444',
+                      background: '#2a2a2a',
+                      color: '#fff',
+                      fontSize: '0.9em',
+                      resize: 'vertical',
+                      marginBottom: '0.5em'
+                    }}
+                  />
+                  <button 
+                    onClick={handleAddWin}
+                    disabled={!newWinText.trim()}
+                    style={{ 
+                      fontSize: '0.9em', 
+                      padding: '0.5em 1em', 
+                      borderRadius: '6px', 
+                      border: '1px solid #646cff', 
+                      background: newWinText.trim() ? '#646cff' : '#444', 
+                      color: '#fff', 
+                      cursor: newWinText.trim() ? 'pointer' : 'not-allowed',
+                      opacity: newWinText.trim() ? 1 : 0.6
+                    }}
+                  >
+                    Add Win
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
